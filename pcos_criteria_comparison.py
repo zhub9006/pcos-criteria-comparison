@@ -1,19 +1,18 @@
 """
-PCOS Diagnostic Criteria Comparison Chart Generator
-====================================================
-Compares the three main PCOS diagnostic criteria sets:
-  - NIH 1990 (Zawadzki & Dunaif)
-  - Rotterdam 2003 (ESHRE/ASRM)
-  - AE-PCOS 2006 (Androgen Excess Society)
+PCOS Diagnostic Criteria Comparison Chart
+==========================================
+Compares the three major PCOS diagnostic criteria:
+  - NIH 1990 (National Institutes of Health)
+  - Rotterdam 2003 (ESHRE/ASRM consensus)
+  - AES 2006 (Androgen Excess Society)
 
-Saves a presentation-ready comparison chart as PNG.
+Generates a presentation-ready comparison chart saved as a PNG image.
 
 Data sourced from:
-  - Rotterdam 2003 consensus (Fertility & Sterility)
-  - AE-PCOS 2006 position statement
-  - NIH 1990 working definition
-  - 2023 International Evidence-Based PCOS Guideline (Teede et al.)
-  - GitHub: rrmadmin/rrm-academy-cf  src/data/pcos.json
+  - Zawadzki & Dunaif, NIH 1990 working definition
+  - Rotterdam ESHRE/ASRM 2003 consensus (Fertility & Sterility)
+  - AE-PCOS Society 2006 position statement
+  - International Evidence-Based PCOS Guideline 2023 (Teede et al.)
 """
 
 import matplotlib
@@ -22,204 +21,189 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 
-# ── Criteria definitions ──────────────────────────────────────────────
+# ──────────────────────────────────────────────
+# 1. Define the three diagnostic criteria sets
+# ──────────────────────────────────────────────
 
 criteria = {
     "NIH 1990": {
-        "subtitle": "Zawadzki & Dunaif",
-        "oligo_anovulation": "Required",
-        "hyperandrogenism": "Required",
-        "polycystic_ovaries": "Not considered",
-        "rule": "Both features required",
-        "prevalence": "~6–10%",
-        "phenotypes_captured": "A, B",
-        "key_stance": "Narrowest definition; captures\nmetabolically-loaded classic\nphenotype only"
+        "full_name": "NIH Consensus (1990)",
+        "description": "Requires BOTH features\n(excludes other disorders)",
+        "Oligo-\nanovulation": "Required",
+        "Hyperandro-\ngenism": "Required",
+        "Polycystic\nOvaries": "Not Required",
+        "Exclude Other\nDisorders": "Required",
     },
     "Rotterdam 2003": {
-        "subtitle": "ESHRE / ASRM",
-        "oligo_anovulation": "One of three",
-        "hyperandrogenism": "One of three",
-        "polycystic_ovaries": "One of three",
-        "rule": "2 of 3 required",
-        "prevalence": "~10–15%",
-        "phenotypes_captured": "A, B, C, D",
-        "key_stance": "Most widely used; broadest\nphenotype capture; source of\nthe four-phenotype classification"
+        "full_name": "Rotterdam / ESHRE-ASRM (2003)",
+        "description": "2 of 3 features required\n(excludes other disorders)",
+        "Oligo-\nanovulation": "2 of 3\nRequired",
+        "Hyperandro-\ngenism": "2 of 3\nRequired",
+        "Polycystic\nOvaries": "2 of 3\nRequired",
+        "Exclude Other\nDisorders": "Required",
     },
-    "AE-PCOS 2006": {
-        "subtitle": "Androgen Excess Society",
-        "oligo_anovulation": "Optional (if HA present)",
-        "hyperandrogenism": "Required",
-        "polycystic_ovaries": "Optional (if HA present)",
-        "rule": "HA required + either OD or PCO",
-        "prevalence": "~8–12%",
-        "phenotypes_captured": "A, B, C",
-        "key_stance": "Frames PCOS as fundamentally\nhyperandrogenic; excludes\nnormo-androgenic Phenotype D"
-    }
+    "AES 2006": {
+        "full_name": "Androgen Excess Society (2006)",
+        "description": "Hyperandrogenism required +\nat least 1 of the other 2\n(excludes other disorders)",
+        "Oligo-\nanovulation": "1 of 2\nRequired",
+        "Hyperandro-\ngenism": "Required",
+        "Polycystic\nOvaries": "1 of 2\nRequired",
+        "Exclude Other\nDisorders": "Required",
+    },
 }
 
-features = ["Oligo-/Anovulation", "Hyperandrogenism\n(clinical/biochemical)", "Polycystic Ovaries\n(ultrasound)"]
-criteria_names = list(criteria.keys())
+features = ["Oligo-\nanovulation", "Hyperandro-\ngenism", "Polycystic\nOvaries", "Exclude Other\nDisorders"]
+criteria_names = ["NIH 1990", "Rotterdam 2003", "AES 2006"]
 
-# ── Build the feature requirement matrix ──────────────────────────────
+# ──────────────────────────────────────────────
+# 2. Build the chart
+# ──────────────────────────────────────────────
 
-# Color coding:
-#   Required       → dark teal
-#   One of three   → medium blue
-#   Optional       → light amber
-#   Not considered → light grey
+fig, ax = plt.subplots(figsize=(16, 9))
+fig.patch.set_facecolor("#FAFBFE")
+ax.set_facecolor("#FAFBFE")
 
-color_map = {
-    "Required":       "#1a6b5a",   # dark teal
-    "One of three":   "#3b82c4",   # medium blue
-    "Optional (if HA present)": "#d4a843",  # amber
-    "Not considered": "#d1d5db",   # light grey
-}
+# Color scheme — professional medical / academic
+HEADER_COLOR = "#1B3A5C"
+ROW_COLORS = ["#E8F0FE", "#FFFFFF"]
+REQUIRED_COLOR = "#2E7D32"       # deep green
+CONDITIONAL_COLOR = "#F57F17"    # amber
+NOT_REQUIRED_COLOR = "#C62828"   # deep red
+BORDER_COLOR = "#B0BEC5"
+TEXT_COLOR = "#263238"
 
-matrix = []
-for c in criteria_names:
-    row = [
-        criteria[c]["oligo_anovulation"],
-        criteria[c]["hyperandrogenism"],
-        criteria[c]["polycystic_ovaries"],
-    ]
-    matrix.append(row)
+n_features = len(features)
+n_criteria = len(criteria_names)
 
-# ── Figure layout ──────────────────────────────────────────────────────
+# Table dimensions
+col_widths = [0.22] + [0.26] * n_criteria  # feature col + 3 criteria cols
+row_height = 0.11
+header_height = 0.13
+desc_height = 0.09
+start_x = 0.02
+start_y = 0.92
 
-fig = plt.figure(figsize=(18, 11), facecolor="#f8f9fa")
+# ── Draw header row ──
+x = start_x
+# Feature column header
+rect = mpatches.FancyBboxPatch(
+    (x, start_y - header_height), col_widths[0], header_height,
+    boxstyle="round,pad=0.01", facecolor=HEADER_COLOR, edgecolor="white", linewidth=2
+)
+ax.add_patch(rect)
+ax.text(x + col_widths[0] / 2, start_y - header_height / 2, "Diagnostic\nFeature",
+        ha="center", va="center", fontsize=13, fontweight="bold", color="white")
+x += col_widths[0]
 
-# Main grid: top area for chart, bottom area for summary boxes
-gs = fig.add_gridspec(2, 1, height_ratios=[3, 1.6], hspace=0.18)
+for ci, cname in enumerate(criteria_names):
+    rect = mpatches.FancyBboxPatch(
+        (x, start_y - header_height), col_widths[ci + 1], header_height,
+        boxstyle="round,pad=0.01", facecolor=HEADER_COLOR, edgecolor="white", linewidth=2
+    )
+    ax.add_patch(rect)
+    ax.text(x + col_widths[ci + 1] / 2, start_y - header_height / 2,
+            criteria[cname]["full_name"],
+            ha="center", va="center", fontsize=12, fontweight="bold", color="white")
+    x += col_widths[ci + 1]
 
-ax_chart = fig.add_subplot(gs[0])
-ax_summary = fig.add_subplot(gs[1])
+# ── Draw description sub-header ──
+y = start_y - header_height
+x = start_x + col_widths[0]
+for ci, cname in enumerate(criteria_names):
+    rect = mpatches.FancyBboxPatch(
+        (x, y - desc_height), col_widths[ci + 1], desc_height,
+        boxstyle="round,pad=0.005", facecolor="#CFD8DC", edgecolor="white", linewidth=1.5
+    )
+    ax.add_patch(rect)
+    ax.text(x + col_widths[ci + 1] / 2, y - desc_height / 2,
+            criteria[cname]["description"],
+            ha="center", va="center", fontsize=9, fontstyle="italic", color=TEXT_COLOR)
+    x += col_widths[ci + 1]
 
-# ── Chart (top) ────────────────────────────────────────────────────────
+# ── Draw data rows ──
+y = start_y - header_height - desc_height
+for fi, feat in enumerate(features):
+    bg = ROW_COLORS[fi % 2]
+    x = start_x
 
-ax_chart.set_facecolor("#f8f9fa")
-ax_chart.set_xlim(-0.5, len(features) - 0.5)
-ax_chart.set_ylim(-0.8, len(criteria_names) - 0.2)
+    # Feature label cell
+    rect = mpatches.FancyBboxPatch(
+        (x, y - row_height), col_widths[0], row_height,
+        boxstyle="round,pad=0.005", facecolor=bg, edgecolor=BORDER_COLOR, linewidth=1.2
+    )
+    ax.add_patch(rect)
+    ax.text(x + col_widths[0] / 2, y - row_height / 2, feat,
+            ha="center", va="center", fontsize=11, fontweight="bold", color=TEXT_COLOR)
+    x += col_widths[0]
 
-cell_w = 0.92
-cell_h = 0.72
-
-for i, c in enumerate(criteria_names):
-    y = len(criteria_names) - 1 - i
-    for j, feat in enumerate(features):
-        val = matrix[i][j]
-        clr = color_map.get(val, "#cccccc")
+    for ci, cname in enumerate(criteria_names):
+        status = criteria[cname][feat]
+        # Choose cell color
+        if status == "Required":
+            cell_bg = "#E8F5E9"
+            text_col = REQUIRED_COLOR
+            symbol = "✔  Required"
+        elif status == "Not Required":
+            cell_bg = "#FFEBEE"
+            text_col = NOT_REQUIRED_COLOR
+            symbol = "✘  Not Required"
+        else:
+            cell_bg = "#FFF8E1"
+            text_col = CONDITIONAL_COLOR
+            symbol = status
 
         rect = mpatches.FancyBboxPatch(
-            (j - cell_w/2, y - cell_h/2), cell_w, cell_h,
-            boxstyle="round,pad=0.04",
-            facecolor=clr, edgecolor="#444444", linewidth=1.4,
-            zorder=3
+            (x, y - row_height), col_widths[ci + 1], row_height,
+            boxstyle="round,pad=0.005", facecolor=cell_bg, edgecolor=BORDER_COLOR, linewidth=1.2
         )
-        ax_chart.add_patch(rect)
+        ax.add_patch(rect)
+        ax.text(x + col_widths[ci + 1] / 2, y - row_height / 2, symbol,
+                ha="center", va="center", fontsize=11, fontweight="bold", color=text_col)
+        x += col_widths[ci + 1]
 
-        # Determine text colour for readability
-        txt_clr = "white" if clr in [color_map["Required"], color_map["One of three"]] else "#222222"
-        ax_chart.text(j, y, val, ha='center', va='center',
-                      fontsize=11.5, fontweight='bold', color=txt_clr, zorder=4)
+    y -= row_height
 
-    # Criteria label on the left
-    ax_chart.text(-1.6, y + 0.12, c, ha='center', va='center',
-                  fontsize=14, fontweight='bold', color="#222222")
-    ax_chart.text(-1.6, y - 0.22, criteria[c]["subtitle"], ha='center', va='center',
-                  fontsize=9.5, color="#666666", style='italic')
-
-# Feature labels on top
-for j, feat in enumerate(features):
-    ax_chart.text(j, len(criteria_names) + 0.15, feat,
-                  ha='center', va='bottom', fontsize=12.5, fontweight='bold', color="#222222")
-
-ax_chart.text(-1.6, len(criteria_names) + 0.15, "Criteria",
-              ha='center', va='bottom', fontsize=13, fontweight='bold', color="#222222")
-
-# Title
-ax_chart.text(len(features)/2 - 0.5, len(criteria_names) + 0.65,
-              "PCOS Diagnostic Criteria — Feature Requirement Comparison",
-              ha='center', va='center', fontsize=19, fontweight='bold', color="#1a1a2e")
-
-ax_chart.text(len(features)/2 - 0.5, len(criteria_names) + 0.42,
-              "NIH 1990  ·  Rotterdam 2003  ·  AE-PCOS 2006",
-              ha='center', va='center', fontsize=12, color="#555555")
-
-ax_chart.axis('off')
-
-# ── Legend ──────────────────────────────────────────────────────────────
-
+# ── Legend ──
+legend_y = y - 0.06
 legend_items = [
-    mpatches.Patch(facecolor=color_map["Required"], edgecolor="#444", label="Required"),
-    mpatches.Patch(facecolor=color_map["One of three"], edgecolor="#444", label="One of three (2-of-3 rule)"),
-    mpatches.Patch(facecolor=color_map["Optional (if HA present)"], edgecolor="#444", label="Optional (conditional)"),
-    mpatches.Patch(facecolor=color_map["Not considered"], edgecolor="#444", label="Not considered"),
+    (REQUIRED_COLOR, "✔ Required — mandatory for diagnosis"),
+    (CONDITIONAL_COLOR, "Conditional — required in combination (2-of-3 or 1-of-2)"),
+    (NOT_REQUIRED_COLOR, "✘ Not Required — not part of criteria"),
 ]
-ax_chart.legend(handles=legend_items, loc='lower center', ncol=4,
-                fontsize=10.5, frameon=True, fancybox=True,
-                edgecolor="#aaaaaa", facecolor="#f0f0f0",
-                bbox_to_anchor=(0.5, -0.08))
+for li, (color, label) in enumerate(legend_items):
+    ax.plot(start_x + 0.02, legend_y - li * 0.04, "s", markersize=12, color=color)
+    ax.text(start_x + 0.05, legend_y - li * 0.04, label,
+            va="center", fontsize=10, color=TEXT_COLOR)
 
-# ── Summary boxes (bottom) ────────────────────────────────────────────
+# ── Key insight box ──
+insight_y = legend_y - len(legend_items) * 0.04 - 0.04
+insight_text = (
+    "KEY INSIGHT:  NIH 1990 is the strictest (requires both HA + OA).  "
+    "Rotterdam 2003 is the broadest (adds PCO-only phenotypes).  "
+    "AES 2006 is intermediate (HA must always be present)."
+)
+rect = mpatches.FancyBboxPatch(
+    (start_x, insight_y - 0.05), sum(col_widths), 0.05,
+    boxstyle="round,pad=0.008", facecolor="#FFF3E0", edgecolor="#E65100", linewidth=1.5
+)
+ax.add_patch(rect)
+ax.text(start_x + sum(col_widths) / 2, insight_y - 0.025, insight_text,
+        ha="center", va="center", fontsize=9.5, fontweight="bold", color="#BF360C")
 
-ax_summary.set_facecolor("#f8f9fa")
-ax_summary.set_xlim(0, 3)
-ax_summary.set_ylim(0, 1)
-ax_summary.axis('off')
+# ── Title ──
+fig.suptitle("Comparison of PCOS Diagnostic Criteria",
+             fontsize=22, fontweight="bold", color=HEADER_COLOR, y=0.99)
+fig.text(0.5, 0.955, "NIH 1990  ·  Rotterdam 2003  ·  AES 2006",
+         ha="center", fontsize=13, color="#546E7A", fontstyle="italic")
 
-box_colors = ["#1a6b5a", "#3b82c4", "#d4a843"]
-box_x_positions = [0.08, 1.08, 2.08]
+ax.set_xlim(0, 1)
+ax.set_ylim(0, 1)
+ax.axis("off")
 
-for idx, c in enumerate(criteria_names):
-    bx = box_x_positions[idx]
-    # Box background
-    rect = mpatches.FancyBboxPatch(
-        (bx, 0.05), 0.84, 0.88,
-        boxstyle="round,pad=0.06",
-        facecolor=box_colors[idx], edgecolor="#333333", linewidth=1.5, alpha=0.15,
-        zorder=2
-    )
-    ax_summary.add_patch(rect)
+plt.tight_layout(rect=[0, 0, 1, 0.94])
 
-    # Header bar
-    hdr = mpatches.FancyBboxPatch(
-        (bx, 0.73), 0.84, 0.20,
-        boxstyle="round,pad=0.03",
-        facecolor=box_colors[idx], edgecolor="#333333", linewidth=1.2, alpha=0.85,
-        zorder=3
-    )
-    ax_summary.add_patch(hdr)
-
-    ax_summary.text(bx + 0.42, 0.87, c, ha='center', va='center',
-                    fontsize=13, fontweight='bold', color="white", zorder=4)
-    ax_summary.text(bx + 0.42, 0.78, criteria[c]["rule"], ha='center', va='center',
-                    fontsize=10, color="white", zorder=4)
-
-    # Details
-    details = [
-        f"Prevalence yield: {criteria[c]['prevalence']}",
-        f"Phenotypes captured: {criteria[c]['phenotypes_captured']}",
-    ]
-    for k, line in enumerate(details):
-        ax_summary.text(bx + 0.42, 0.60 - k * 0.12, line,
-                        ha='center', va='center', fontsize=10, color="#333333", zorder=4)
-
-    # Stance (smaller text)
-    ax_summary.text(bx + 0.42, 0.28, criteria[c]["key_stance"],
-                    ha='center', va='center', fontsize=8.5, color="#555555",
-                    style='italic', zorder=4, linespacing=1.4)
-
-# ── Footer ──────────────────────────────────────────────────────────────
-
-fig.text(0.5, 0.01,
-         "Sources: Zawadzki & Dunaif 1990 · Rotterdam ESHRE/ASRM 2003 · AE-PCOS Society 2006 · "
-         "International Guideline 2023 (Teede et al.)  |  "
-         "Data: github.com/rrmadmin/rrm-academy-cf",
-         ha='center', fontsize=8, color="#999999")
-
-# ── Save ────────────────────────────────────────────────────────────────
-
-output_path = "pcos_criteria_comparison.png"
-fig.savefig(output_path, dpi=200, bbox_inches='tight', facecolor="#f8f9fa")
-print(f"✅ Chart saved to {output_path}")
-plt.close(fig)
+# ── Save ──
+output_path = "pcos_criteria_comparison_chart.png"
+fig.savefig(output_path, dpi=200, bbox_inches="tight", facecolor=fig.get_facecolor())
+plt.close()
+print(f"✅ Chart saved to: {output_path}")
